@@ -49,6 +49,9 @@ if optionsLoaded then
     options.targetShowAccuracyAssist  = lib_helpers.NotNilOrDefault(options.targetShowAccuracyAssist, false)
     options.targetAccuracyThreshold   = lib_helpers.NotNilOrDefault(options.targetAccuracyThreshold, 90)
     options.targetShowActivationRates = lib_helpers.NotNilOrDefault(options.targetShowActivationRates, 1)
+    options.targetColors              = lib_helpers.NotNilOrDefault(options.targetColors, false)
+    options.targetColorUtility        = lib_helpers.NotNilOrDefault(options.targetColorUtility, 1)
+    options.targetColorsStatic        = lib_helpers.NotNilOrDefault(options.targetColorsStatic, false)
 else
     options =
     {
@@ -88,6 +91,9 @@ else
         targetShowAccuracyAssist = false,
         targetAccuracyThreshold = 90,
         targetShowActivationRates = 1,
+        targetColors = false,
+        targetColorUtility = 1,
+		targetColorsStatic = false,
     }
 end
 
@@ -134,6 +140,9 @@ local function SaveOptions(options)
         io.write(string.format("    targetShowAccuracyAssist = %s,\n", tostring(options.targetShowAccuracyAssist)))
         io.write(string.format("    targetAccuracyThreshold = %s,\n", tostring(options.targetAccuracyThreshold)))
         io.write(string.format("    targetShowActivationRates = %s,\n", tostring(options.targetShowActivationRates)))
+		io.write(string.format("    targetColors = %s,\n", tostring(options.targetColors)))
+		io.write(string.format("    targetColorUtility = %s,\n", tostring(options.targetColorUtility)))
+		io.write(string.format("    targetColorsStatic = %s,\n", tostring(options.targetColorsStatic)))
         io.write("}\n")
 
         io.close(file)
@@ -672,74 +681,98 @@ local function PresentTargetMonster(monster)
         if options.targetShowMonsterStats then
             lib_helpers.Text(true, "[ATP: %i, DFP: %i, MST: %i, ATA: %i, EVP: %i, LCK: %i]",
                                    monster.Atp, monster.Dfp, monster.Mst, monster.Ata, monster.Evp, monster.Lck)
-			--Text to be displayed (color coded by element)
-			local restext = {}
-			restext[1] = "EFR: "
-			restext[2] = "EIC: "
-			restext[3] = "ETH: "
-			restext[4] = "EDK: "
-			restext[5] = "ELT: "
-			
-			--Data to be (usability color) displayed with text.
-			local resdata = {}
-			resdata[1] = monster.Efr
-			resdata[2] = monster.Eic
-			resdata[3] = monster.Eth
-			resdata[4] = monster.Edk
-			resdata[5] = monster.Elt
-			
-			--Sorted array of 4 main elements (exclude Edk due to it's different behavior)
-			local ressort = {}
-			local i = 1
-			for k,v in ipairs(resdata) do
-				if(k ~= 4) then
-					ressort[i] = v
-					i = i + 1
+			--Check for colorized?
+			if not options.targetColors then
+				lib_helpers.Text(true, "[EFR: %i, EIC: %i, ETH: %i, EDK: %i, ELT: %i, ESP: %i]",
+									   monster.Efr, monster.Eic, monster.Eth, monster.Edk, monster.Elt, monster.Esp)
+			else
+				--Text to be displayed (color coded by element)
+				local restext = {}
+				restext[1] = "EFR: "
+				restext[2] = "EIC: "
+				restext[3] = "ETH: "
+				restext[4] = "EDK: "
+				restext[5] = "ELT: "
+				
+				--Data to be (usability color) displayed with text.
+				local resdata = {}
+				resdata[1] = monster.Efr
+				resdata[2] = monster.Eic
+				resdata[3] = monster.Eth
+				resdata[4] = monster.Edk
+				resdata[5] = monster.Elt
+				
+				--Sorted array of 4 main elements (exclude Edk due to it's different behavior)
+				local ressort = {}
+				local i = 1
+				for k,v in ipairs(resdata) do
+					if(k ~= 4) then
+						ressort[i] = v
+						i = i + 1
+					end
 				end
-			end
-			table.sort(ressort)
-			
-			--reverse lookup to convert monster resistance into usable color index.
-			local resindex = {}
-			i = 1
-			for k,v in ipairs(ressort) do
-				if(not resindex[v]) then
-					resindex[v] = k
-					i = i + 1
+				table.sort(ressort)
+				
+				--reverse lookup to convert monster resistance into usable color index.
+				local resindex = {}
+				i = 1
+				for k,v in ipairs(ressort) do
+					if(not resindex[v]) then
+						resindex[v] = k
+						i = i + 1
+					end
 				end
-			end
-			
-			--Setup the colors to be used when printing.
-			restextpc = {}
-			restextuc = {}
-			for k,v in ipairs(restext) do
-				--special case EDK...
-				if(k == 4) then
-					restextpc[k] = _ResistColors[((k-1)*4)+(math.floor(monster.Edk/25)+1)]
-					restextuc[k] = _ColorSet[math.floor((monster.Edk/25)+1)]
-				else
-					restextpc[k] = _ResistColors[((k-1)*4)+resindex[resdata[k]]]
-					restextuc[k] = _ColorSet[resindex[resdata[k]]]
+				
+				--Setup the colors to be used when printing.
+				restextpc = {}
+				restextuc = {}
+				for k,v in ipairs(restext) do
+					if options.targetColorsStatic then
+						restextpc[k] = _ResistColors[((k-1)*4)+1]
+					else
+						--special case EDK...
+						if(k == 4) then
+							restextpc[k] = _ResistColors[((k-1)*4)+(math.floor(monster.Edk/25)+1)]
+						else
+							restextpc[k] = _ResistColors[((k-1)*4)+resindex[resdata[k]]]
+						end
+					end
+					
+					if(options.targetColorUtility == 2) then
+						--EDK special case...
+						if(k == 4) then
+							restextuc[k] = _ResistColors[((k-1)*4)+(math.floor(monster.Edk/25)+1)]
+						else
+							restextuc[k] = _ResistColors[((k-1)*4)+resindex[resdata[k]]]
+						end
+					else
+						--Ah... EDK again...
+						if(k == 4) then
+							restextuc[k] = _ColorSet[math.floor((monster.Edk/25)+1)]
+						else
+							restextuc[k] = _ColorSet[resindex[resdata[k]]]
+						end
+					end
 				end
-			end
-			
-			--Do the printing.
-			lib_helpers.Text(true, "[")
-			for k,v in ipairs(restext) do
-				if(resdata[k] == 100) then
-					--Print white text if the resdata indicates complete immunity.
-					lib_helpers.Text(false, v)
-					lib_helpers.Text(false, "%i", resdata[k])
-				else
-					--Print the colored text.
-					lib_helpers.TextC(false, restextpc[k], v)
-					lib_helpers.TextC(false, restextuc[k], "%i", resdata[k])
+				
+				--Do the printing.
+				lib_helpers.Text(true, "[")
+				for k,v in ipairs(restext) do
+					if(resdata[k] == 100) then
+						--Print white text if the resdata indicates complete immunity.
+						lib_helpers.Text(false, v)
+						lib_helpers.Text(false, "%i", resdata[k])
+					else
+						--Print the colored text.
+						lib_helpers.TextC(false, restextpc[k], v)
+						lib_helpers.TextC(false, restextuc[k], "%i", resdata[k])
+					end
+					--Print the spacers between each text set.
+					lib_helpers.Text(false, ", ")
 				end
-				--Print the spacers between each text set.
-				lib_helpers.Text(false, ", ")
+				lib_helpers.Text(false, "ESP: %i]", monster.Esp)
 			end
-			lib_helpers.Text(false, "ESP: %i]", monster.Esp)
-        end
+		end
 
         -- Draw enemy HP bar
         lib_helpers.imguiProgressBar(true, mHP/mHPMax, -1.0, imgui.GetFontSize(), lib_helpers.HPToGreenRedGradient(mHP/mHPMax), nil, mHP)

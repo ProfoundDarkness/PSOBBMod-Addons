@@ -23,6 +23,11 @@ local function ConfigurationWindow(configuration)
             "Hell and T1 - broken",         -- TODO: Remove '- broken'
             "Hell, T1, and T2 - broken",    -- TODO: Remove '- broken'
         }
+		local colorUtilityList =
+		{
+			"Color Wheel",
+			"Label Shade",
+		}
 
         if imgui.TreeNodeEx("General", "DefaultOpen") then
             if imgui.Checkbox("Enable", _configuration.enable) then
@@ -142,12 +147,35 @@ local function ConfigurationWindow(configuration)
                 _configuration.targetShowMonsterName = not _configuration.targetShowMonsterName
                 this.changed = true
             end
-
-            if imgui.Checkbox("Show Monster Stats", _configuration.targetShowMonsterStats) then
-                _configuration.targetShowMonsterStats = not _configuration.targetShowMonsterStats
-                this.changed = true
-            end
-
+			
+			if imgui.TreeNodeEx("Monster Stats") then
+			
+				if imgui.Checkbox("Show Monster Stats", _configuration.targetShowMonsterStats) then
+					_configuration.targetShowMonsterStats = not _configuration.targetShowMonsterStats
+					this.changed = true
+				end
+				
+				--Color options
+				if imgui.Checkbox("Colorize Elemental Resists", _configuration.targetColors) then
+					_configuration.targetColors = not _configuration.targetColors
+					this.changed = true
+				end
+				
+				imgui.PushItemWidth(200)
+				success, _configuration.targetColorUtility = imgui.Combo("Utility Colors", _configuration.targetColorUtility, colorUtilityList, table.getn(colorUtilityList))
+				imgui.PopItemWidth()
+				if success then
+					this.changed = true
+				end
+				
+				if imgui.Checkbox("Static Label Colors", _configuration.targetColorsStatic) then
+					_configuration.targetColorsStatic = not _configuration.targetColorsStatic
+					this.changed = true
+				end
+				
+				imgui.TreePop()
+			end
+			
             if imgui.Checkbox("Show Accuracy Assist", _configuration.targetShowAccuracyAssist) then
                 _configuration.targetShowAccuracyAssist = not _configuration.targetShowAccuracyAssist
                 this.changed = true
@@ -205,7 +233,7 @@ local function ConfigurationWindow(configuration)
                 end
                 this.changed = true
             end
-
+			
             if imgui.Checkbox("Transparent window", _configuration.targetTransparentWindow) then
                 _configuration.targetTransparentWindow = not _configuration.targetTransparentWindow
                 this.changed = true
