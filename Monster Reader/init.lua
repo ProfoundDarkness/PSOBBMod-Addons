@@ -206,6 +206,55 @@ local _MonsterBarbaRayShellHPMax = 0x1C
 local _ephineaMonsterArrayPointer = 0x00B5F800
 local _ephineaMonsterHPScale = 0x00B5F804
 
+-- Resistance color codes, mostly lifted from items_configuration.lua
+-- fire ice thunder dark light
+-- Originally used values lifted from items_configuration.lua but that didn't look as good as had hoped.
+-- Opted for a more brightness scale within a color type.
+-- Primary colors are fire - red, ice - blue, thunder - yellow, dark - violet, and light - green.
+-- Also liked how 0xFF888888 looked for no good color so range is based 4 ranges from that color.
+-- Keeping the Burning/Blizzard, Tempest, Hell, Gush shades as max brightness.
+--
+-- K, Started out with the idea of keeping the colors but I don't like how it's working.
+-- So going with bright primary colors as much as possible.  RGB is easy.  Yellow, Violet are a tad tougher
+-- I think I have too many colors to pick from too...
+
+-- After considering for a while what I really want is to consider fire, ice, thunder, and lightning.
+-- then have a simple gradient on dark.
+-- So there are 3 color states of note and 1 empty color state.
+-- The best element damage is brightest, second and 3rd best, then no color.
+
+-- For Violet there are 3 color states as well, better than 25%, 25 to 60%, 90% and immune (no color)
+local _ResistColors = {
+    0xFFFF7734, -- Fire1 - Burning (very weak resist)
+	0xFFE17B49, -- Fire2 - Flame
+	0xFFC4805E, -- Fire3 - Fire
+	0xFFA68473, -- Fire4 - Heat (very strong resist)
+	0xFF31CBFF, -- Ice1 - Blizzard
+	0xFF64D8FF, -- Ice2 - Freeze
+	0xFF98E5FF, -- Ice3 - Frost
+	0xFFCBF2FF, -- Ice4 - Ice
+	0xFFEFEE00, -- Thunder1 - Tempest
+	0xFFF3F240, -- Thunder2 - Storm
+	0xFFF7F780, -- Thunder3 - Thunder
+	0xFFFBFBBF, -- Thunder4 - Shock
+	0xFFCB11FF, -- Dark1 - Hell
+	0xFFD84DFF, -- Dark2 - Dark
+	0xFFE588FF, -- Dark3 - Shadow
+	0xFFF2C4FF, -- Dark4 - Dim
+	0xFFFFFFFF, -- Light1 (first entry not lifted from elsewhere)
+	0xFFDDDDDD, -- Light2 (considering using drain/gush colors)
+	0xFFAAAAAA, -- Light3
+	0xFF777777 -- Light4
+}
+
+--Haven't found a good pattern of colors so trying something different.
+local _ColorSet = {
+	0xFF0FAE00, -- Green (best choice)
+	0xFFFFFF00, -- Yellow (OK choice)
+	0xFFFF9400, -- Orange (bad choice)
+	0xFFFF0000, -- Red (worst choice)
+}
+
 local function CopyMonster(monster)
     local copy = {}
 
@@ -623,8 +672,73 @@ local function PresentTargetMonster(monster)
         if options.targetShowMonsterStats then
             lib_helpers.Text(true, "[ATP: %i, DFP: %i, MST: %i, ATA: %i, EVP: %i, LCK: %i]",
                                    monster.Atp, monster.Dfp, monster.Mst, monster.Ata, monster.Evp, monster.Lck)
-            lib_helpers.Text(true, "[EFR: %i, EIC: %i, ETH: %i, EDK: %i, ELT: %i, ESP: %i]",
-                                   monster.Efr, monster.Eic, monster.Eth, monster.Edk, monster.Elt, monster.Esp)
+			--Text to be displayed (color coded by element)
+			local restext = {}
+			restext[1] = "EFR: "
+			restext[2] = "EIC: "
+			restext[3] = "ETH: "
+			restext[4] = "EDK: "
+			restext[5] = "ELT: "
+			
+			--Data to be (usability color) displayed with text.
+			local resdata = {}
+			resdata[1] = monster.Efr
+			resdata[2] = monster.Eic
+			resdata[3] = monster.Eth
+			resdata[4] = monster.Edk
+			resdata[5] = monster.Elt
+			
+			--Sorted array of 4 main elements (exclude Edk due to it's different behavior)
+			local ressort = {}
+			local i = 1
+			for k,v in ipairs(resdata) do
+				if(k ~= 4) then
+					ressort[i] = v
+					i = i + 1
+				end
+			end
+			table.sort(ressort)
+			
+			--reverse lookup to convert monster resistance into usable color index.
+			local resindex = {}
+			i = 1
+			for k,v in ipairs(ressort) do
+				if(not resindex[v]) then
+					resindex[v] = k
+					i = i + 1
+				end
+			end
+			
+			--Setup the colors to be used when printing.
+			restextpc = {}
+			restextuc = {}
+			for k,v in ipairs(restext) do
+				--special case EDK...
+				if(k == 4) then
+					restextpc[k] = _ResistColors[((k-1)*4)+(math.floor(monster.Edk/25)+1)]
+					restextuc[k] = _ColorSet[math.floor((monster.Edk/25)+1)]
+				else
+					restextpc[k] = _ResistColors[((k-1)*4)+resindex[resdata[k]]]
+					restextuc[k] = _ColorSet[resindex[resdata[k]]]
+				end
+			end
+			
+			--Do the printing.
+			lib_helpers.Text(true, "[")
+			for k,v in ipairs(restext) do
+				if(resdata[k] == 100) then
+					--Print white text if the resdata indicates complete immunity.
+					lib_helpers.Text(false, v)
+					lib_helpers.Text(false, "%i", resdata[k])
+				else
+					--Print the colored text.
+					lib_helpers.TextC(false, restextpc[k], v)
+					lib_helpers.TextC(false, restextuc[k], "%i", resdata[k])
+				end
+				--Print the spacers between each text set.
+				lib_helpers.Text(false, ", ")
+			end
+			lib_helpers.Text(false, "ESP: %i]", monster.Esp)
         end
 
         -- Draw enemy HP bar
